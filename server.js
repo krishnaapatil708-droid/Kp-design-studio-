@@ -45,7 +45,9 @@ app.use(session({
   cookie:{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production"}
 }));
 app.use(express.static(path.join(__dirname,"public")));
-
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 function auth(req,res,next){
   if(req.session.admin) return next();
   res.status(401).json({error:"Admin login required"});
