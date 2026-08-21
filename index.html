@@ -10,15 +10,14 @@ header{background:#fff;border-bottom:1px solid #ddd;position:sticky;top:0;z-inde
 .nav{max-width:1100px;margin:auto;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
 .logo{font-weight:900;letter-spacing:1px}.logo small{display:block;font-size:9px;letter-spacing:3px;color:#777;margin-top:4px}
 button{cursor:pointer;border:0;border-radius:20px;padding:10px 15px}
-.dark{background:#171513;color:#fff}
-.wrap{max-width:1100px;margin:auto;padding:20px}
+.dark{background:#171513;color:#fff}.wrap{max-width:1100px;margin:auto;padding:20px}
 .hero{padding:65px 25px;border-radius:25px;background:#29221f;color:white;margin-bottom:45px}
 .hero h1{font-size:clamp(40px,7vw,70px);max-width:750px;margin:0}
 .hero p{max-width:650px;color:#ddd;line-height:1.7}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .card{background:#fff;border:1px solid #e5ddd5;border-radius:18px;overflow:hidden}
-.card img{width:100%;aspect-ratio:4/3;object-fit:cover}
-.info{padding:15px}.price{font-weight:900;font-size:19px}.buy{float:right;background:#171513;color:#fff}
+.card img{width:100%;aspect-ratio:4/3;object-fit:cover}.info{padding:15px}
+.price{font-weight:900;font-size:19px}.buy{float:right;background:#171513;color:#fff}
 .panel{display:none;background:#fff;border:1px solid #ddd;border-radius:18px;padding:20px;margin:25px 0}
 .field{margin:10px 0}.field label{display:block;font-size:12px;font-weight:bold;margin-bottom:5px}
 .field input,.field textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;box-sizing:border-box}
@@ -29,243 +28,168 @@ button{cursor:pointer;border:0;border-radius:20px;padding:10px 15px}
 </style>
 </head>
 <body>
-
 <header>
 <div class="nav">
 <div class="logo">KP DESIGN STUDIO<small>DIGITAL TEXTILE DESIGNS</small></div>
-<div>
-<button type="button" onclick="openAdmin()">Admin</button>
-<button type="button" class="dark" onclick="toggleCart()">Cart (<span id="cc">0</span>)</button>
-</div>
+<div><button onclick="openAdmin()">Admin</button><button class="dark" onclick="toggleCart()">Cart (<span id="cc">0</span>)</button></div>
 </div>
 </header>
 
 <main class="wrap">
-
 <section id="store">
-<div class="hero">
-<h1>Premium Digital Textile Designs.</h1>
-<p>Shop digital textile artwork for sarees, borders and pallus. Your store is now connected to the backend product API.</p>
-</div>
-<h2>Design Collection</h2>
-<div id="products" class="grid"></div>
+<div class="hero"><h1>Premium Digital Textile Designs.</h1><p>Shop digital textile artwork for sarees, borders and pallus.</p></div>
+<h2>Design Collection</h2><div id="products" class="grid"></div>
 </section>
 
 <section id="admin" class="panel">
 <h2>Admin Panel</h2>
-
 <div id="loginBox">
-<div class="field">
-<label>Admin password</label>
-<input id="pass" type="password">
-</div>
-<button type="button" class="dark" onclick="login()">Login</button>
+<div class="field"><label>Admin password</label><input id="pass" type="password"></div>
+<button class="dark" onclick="login()">Login</button>
 </div>
 
 <div id="dashboard" style="display:none">
 <h3>Add Product</h3>
-
 <div class="field"><label>Name</label><input id="name"></div>
 <div class="field"><label>Price</label><input id="price" type="number"></div>
 <div class="field"><label>Category</label><input id="category" placeholder="Saree / Border / Pallu"></div>
 <div class="field"><label>Description</label><textarea id="desc"></textarea></div>
-
-<div class="field">
-<label>Preview image</label>
-<input id="preview" type="file" accept="image/*">
-</div>
-
-<div class="field">
-<label>Digital file (TIFF/ZIP)</label>
-<input id="digital" type="file" accept=".tif,.tiff,.zip">
-</div>
-
-<button type="button" class="dark" onclick="addProduct()">Publish</button>
-<button type="button" onclick="logout()">Logout</button>
-
-<h3>Products</h3>
-<div id="adminList"></div>
+<div class="field"><label>Preview image</label><input id="preview" type="file" accept="image/*"></div>
+<div class="field"><label>Digital file (TIFF/ZIP)</label><input id="digital" type="file" accept=".tif,.tiff,.zip"></div>
+<button class="dark" onclick="addProduct()">Publish</button>
+<button onclick="logout()">Logout</button>
+<h3>Products</h3><div id="adminList"></div>
 </div>
 </section>
 
 <section id="cart" class="panel">
-<h2>Cart</h2>
-<div id="cartItems"></div>
-<h3 id="total"></h3>
-<button type="button" class="dark" onclick="alert('Payment gateway will be connected next.')">Proceed to Payment</button>
+<h2>Cart</h2><div id="cartItems"></div><h3 id="total"></h3>
+<button class="dark" onclick="alert('Payment gateway will be connected next.')">Proceed to Payment</button>
 </section>
-
 </main>
 
 <script>
-let cart = [];
+let cart=[];
 
 async function load(){
   try{
-    const r = await fetch('/api/products');
-    const ps = await r.json();
-
-    document.getElementById('products').innerHTML =
-      ps.map(p => `
-        <article class="card">
-          <img src="${p.previewUrl}" alt="">
-          <div class="info">
-            <small>${p.category || ''}</small>
-            <h3>${p.name || ''}</h3>
-            <p>${p.description || ''}</p>
-            <span class="price">₹${p.price}</span>
-            <button type="button" class="buy" onclick='add(${JSON.stringify(p)})'>Buy</button>
-          </div>
-        </article>
-      `).join('') || '<p>No products yet.</p>';
+    const r=await fetch('/api/products');
+    if(!r.ok) throw new Error('Products API '+r.status);
+    const ps=await r.json();
+    document.getElementById('products').innerHTML=ps.map(p=>`
+      <article class="card">
+        <img src="${p.previewUrl}">
+        <div class="info">
+          <small>${p.category}</small><h3>${p.name}</h3>
+          <p>${p.description||''}</p><span class="price">₹${p.price}</span>
+          <button class="buy" onclick='add(${JSON.stringify(p)})'>Buy</button>
+        </div>
+      </article>`).join('')||'<p>No products yet.</p>';
   }catch(e){
-    document.getElementById('products').innerHTML = '<p>Products load nahi ho rahe.</p>';
     console.error(e);
+    document.getElementById('products').innerHTML='<p>Unable to load products.</p>';
   }
 }
 
-function add(p){
-  cart.push(p);
-  document.getElementById('cc').textContent = cart.length;
-  renderCart();
-}
+function add(p){cart.push(p);document.getElementById('cc').textContent=cart.length;renderCart()}
 
 function toggleCart(){
-  const el = document.getElementById('cart');
-  el.style.display = el.style.display === 'block' ? 'none' : 'block';
+  const el=document.getElementById('cart');
+  el.style.display=el.style.display==='block'?'none':'block';
   renderCart();
 }
 
 function renderCart(){
-  document.getElementById('cartItems').innerHTML =
-    cart.map(p => `<div class="item"><div><b>${p.name}</b><br>₹${p.price}</div></div>`).join('') || 'Cart empty';
-
-  document.getElementById('total').textContent =
-    'Total: ₹' + cart.reduce((s,p) => s + Number(p.price || 0), 0);
+  document.getElementById('cartItems').innerHTML=cart.map(p=>
+    `<div class="item"><div><b>${p.name}</b><br>₹${p.price}</div></div>`
+  ).join('')||'Cart empty';
+  document.getElementById('total').textContent='Total: ₹'+cart.reduce((s,p)=>s+Number(p.price),0);
 }
 
 function openAdmin(){
-  const admin = document.getElementById('admin');
-  admin.style.display = 'block';
-  admin.scrollIntoView({behavior:'smooth', block:'start'});
+  const el=document.getElementById('admin');
+  el.style.display='block';
+  el.scrollIntoView({behavior:'smooth'});
 }
 
 async function login(){
   try{
-    const password = document.getElementById('pass').value;
-
-    const r = await fetch('/api/login',{
+    const r=await fetch('/api/login',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({password})
+      body:JSON.stringify({password:document.getElementById('pass').value})
     });
-
     if(r.ok){
-      document.getElementById('loginBox').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
-      await loadAdmin();
-    }else{
-      alert('Wrong password');
-    }
-  }catch(e){
-    console.error(e);
-    alert('Server se connection nahi ho raha.');
-  }
+      document.getElementById('loginBox').style.display='none';
+      document.getElementById('dashboard').style.display='block';
+      loadAdmin();
+    }else alert('Wrong password');
+  }catch(e){alert('Server se connection nahi ho raha.');console.error(e)}
 }
 
 async function loadAdmin(){
   try{
-    const r = await fetch('/api/products');
-    const ps = await r.json();
-
-    document.getElementById('adminList').innerHTML =
-      ps.map(p => `
-        <div class="item">
-          <img src="${p.previewUrl}" alt="">
-          <div><b>${p.name}</b><br>₹${p.price}</div>
-          <button type="button" onclick="del('${p.id}')">Delete</button>
-        </div>
-      `).join('') || 'No products';
-  }catch(e){
-    console.error(e);
-    document.getElementById('adminList').textContent = 'Products load nahi ho rahe.';
-  }
+    const r=await fetch('/api/products');
+    const ps=await r.json();
+    document.getElementById('adminList').innerHTML=ps.map(p=>
+      `<div class="item"><img src="${p.previewUrl}"><div><b>${p.name}</b><br>₹${p.price}</div>
+      <button onclick="del('${p.id}')">Delete</button></div>`
+    ).join('')||'No products';
+  }catch(e){console.error(e)}
 }
 
 async function addProduct(){
-  const nameInput = document.getElementById('name');
-  const priceInput = document.getElementById('price');
-  const categoryInput = document.getElementById('category');
-  const descInput = document.getElementById('desc');
-  const previewInput = document.getElementById('preview');
-  const digitalInput = document.getElementById('digital');
+  const name=document.getElementById('name');
+  const price=document.getElementById('price');
+  const category=document.getElementById('category');
+  const desc=document.getElementById('desc');
+  const preview=document.getElementById('preview');
+  const digital=document.getElementById('digital');
 
-  if(!nameInput.value || !priceInput.value || !categoryInput.value){
-    alert('Name, Price aur Category bharna zaroori hai.');
-    return;
+  if(!name.value||!price.value||!category.value){
+    alert('Name, Price aur Category bharna zaroori hai.'); return;
   }
+  if(!preview.files[0]){alert('Preview image select karo.');return}
+  if(!digital.files[0]){alert('Digital TIFF/ZIP file select karo.');return}
 
-  if(!previewInput.files[0]){
-    alert('Preview image select karo.');
-    return;
-  }
+  const fd=new FormData();
+  fd.append('name',name.value);
+  fd.append('price',price.value);
+  fd.append('category',category.value);
+  fd.append('description',desc.value);
+  fd.append('preview',preview.files[0]);
 
-  if(!digitalInput.files[0]){
-    alert('Digital TIFF/ZIP file select karo.');
-    return;
-  }
-
-  const fd = new FormData();
-  fd.append('name', nameInput.value);
-  fd.append('price', priceInput.value);
-  fd.append('category', categoryInput.value);
-  fd.append('description', descInput.value);
-  fd.append('preview', previewInput.files[0]);
-  fd.append('digital', digitalInput.files[0]);
+  // IMPORTANT: server.js expects this field name
+  fd.append('digitalFile',digital.files[0]);
 
   try{
-    const response = await fetch('/api/products',{
-      method:'POST',
-      body:fd
-    });
+    const r=await fetch('/api/products',{method:'POST',body:fd});
+    const text=await r.text();
+    let data={};
+    try{data=JSON.parse(text)}catch(_){}
 
-    let data = {};
-    try{ data = await response.json(); }catch(e){}
-
-    if(!response.ok){
-      alert(data.error || 'Product publish nahi hua.');
+    if(!r.ok){
+      alert(data.error || ('Publish failed (HTTP '+r.status+')'));
+      console.error(text);
       return;
     }
 
     alert('Product successfully published!');
-
     await load();
     await loadAdmin();
 
-    nameInput.value = '';
-    priceInput.value = '';
-    categoryInput.value = '';
-    descInput.value = '';
-    previewInput.value = '';
-    digitalInput.value = '';
-
-  }catch(error){
-    console.error(error);
+    name.value='';price.value='';category.value='';desc.value='';
+    preview.value='';digital.value='';
+  }catch(e){
+    console.error(e);
     alert('Server se connection nahi ho raha.');
   }
 }
 
 async function del(id){
-  if(!confirm('Delete product?')) return;
-
-  try{
-    await fetch('/api/products/' + id,{method:'DELETE'});
-    await load();
-    await loadAdmin();
-  }catch(e){
-    console.error(e);
-    alert('Delete nahi hua.');
-  }
+  if(!confirm('Delete product?'))return;
+  await fetch('/api/products/'+id,{method:'DELETE'});
+  load();loadAdmin();
 }
 
 async function logout(){
@@ -275,6 +199,5 @@ async function logout(){
 
 load();
 </script>
-
 </body>
 </html>
