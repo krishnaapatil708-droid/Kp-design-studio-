@@ -40,7 +40,66 @@ function renderCart(){document.getElementById('cartItems').innerHTML=cart.map(p=
 function openAdmin(){document.getElementById('admin').style.display='block';scrollTo(0,document.getElementById('admin').offsetTop)}
 async function login(){const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pass').value})});if(r.ok){document.getElementById('loginBox').style.display='none';document.getElementById('dashboard').style.display='block';loadAdmin()}else alert('Wrong password')}
 async function loadAdmin(){const r=await fetch('/api/products');const ps=await r.json();document.getElementById('adminList').innerHTML=ps.map(p=>`<div class="item"><img src="${p.previewUrl}"><div><b>${p.name}</b><br>₹${p.price}</div><button onclick="del('${p.id}')">Delete</button></div>`).join('')||'No products'}
-async function addProduct(){const fd=new FormData();fd.append('name',name.value);fd.append('price',price.value);fd.append('category',category.value);fd.append('description',desc.value);fd.append('preview',preview.files[0]);fd.append('digitalFile',digital.files[0]);const r=await fetch('/api/products',{method:'POST',body:fd});if(!r.ok){alert((await r.json()).error);return}alert('Published');load();loadAdmin()}
+async async function addProduct() {
+  const nameInput = document.getElementById("name");
+  const priceInput = document.getElementById("price");
+  const categoryInput = document.getElementById("category");
+  const descInput = document.getElementById("desc");
+  const previewInput = document.getElementById("preview");
+  const digitalInput = document.getElementById("digital");
+
+  if (!nameInput.value || !priceInput.value || !categoryInput.value) {
+    alert("Name, Price aur Category bharna zaroori hai.");
+    return;
+  }
+
+  if (!previewInput.files[0]) {
+    alert("Preview image select karo.");
+    return;
+  }
+
+  if (!digitalInput.files[0]) {
+    alert("Digital TIFF/ZIP file select karo.");
+    return;
+  }
+
+  const fd = new FormData();
+
+  fd.append("name", nameInput.value);
+  fd.append("price", priceInput.value);
+  fd.append("category", categoryInput.value);
+  fd.append("description", descInput.value);
+  fd.append("preview", previewInput.files[0]);
+  fd.append("digital", digitalInput.files[0]);
+
+  try {
+    const response = await fetch("/api/products", {
+      method: "POST",
+      body: fd
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.error || "Product publish nahi hua.");
+      return;
+    }
+
+    alert("Product successfully published!");
+    await loadAdmin();
+
+    nameInput.value = "";
+    priceInput.value = "";
+    categoryInput.value = "";
+    descInput.value = "";
+    previewInput.value = "";
+    digitalInput.value = "";
+
+  } catch (error) {
+    console.error(error);
+    alert("Server se connection nahi ho raha.");
+  }
+      }(){const fd=new FormData();fd.append('name',name.value);fd.append('price',price.value);fd.append('category',category.value);fd.append('description',desc.value);fd.append('preview',preview.files[0]);fd.append('digitalFile',digital.files[0]);const r=await fetch('/api/products',{method:'POST',body:fd});if(!r.ok){alert((await r.json()).error);return}alert('Published');load();loadAdmin()}
 async function del(id){if(!confirm('Delete product?'))return;await fetch('/api/products/'+id,{method:'DELETE'});load();loadAdmin()}
 async function logout(){await fetch('/api/logout',{method:'POST'});location.reload()}
 load();
