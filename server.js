@@ -7,7 +7,7 @@ const crypto = require("crypto");
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 10000;
 const ADMIN_PASSWORD =
   process.env.ADMIN_PASSWORD || "CHANGE_THIS_PASSWORD";
 const SESSION_SECRET =
@@ -29,8 +29,8 @@ try {
     products = JSON.parse(fs.readFileSync(dbFile, "utf8"));
     if (!Array.isArray(products)) products = [];
   }
-} catch (e) {
-  console.error(e);
+} catch (err) {
+  console.error("Could not read products.json:", err);
   products = [];
 }
 
@@ -47,10 +47,37 @@ const storage = multer.diskStorage({
   },
 
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, crypto.randomUUID() + ext);
+    const ext = path.extname(
+      file.originalname || ""
+    ).toLowerCase();
+
+    cb(
+      null,
+      crypto.randomUUID() + ext
+    );
   }
 });
+
+function isAllowed(file) {
+  const name = (
+    file.originalname || ""
+  ).toLowerCase();
+
+  const ext = path.extname(name);
+
+  if (
+    [".tif", ".tiff", ".zip"].includes(ext)
+  ) {
+    return true;
+  }
+
+  return [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/tiff"
+  ].includes(file.mimetype);
+}
 
 const upload = multer({
   storage,
@@ -60,26 +87,26 @@ const upload = multer({
   },
 
   fileFilter: (_req, file, cb) => {
-    const name = file.originalname.toLowerCase();
-
-    const ok =
-      file.mimetype === "image/jpeg" ||
-      file.mimetype === "image/png" ||
-      file.mimetype === "image/webp" ||
-      file.mimetype === "image/tiff" ||
-      file.mimetype === "application/zip" ||
-      file.mimetype === "application/x-zip-compressed" ||
-      /\.(tif|tiff|zip)$/.test(name);
+    if (isAllowed(file)) {
+      return cb(null, true);
+    }
 
     cb(
-      ok ? null : new Error("Unsupported file type"),
-      ok
+      new Error(
+        "Unsupported file type: " +
+        file.originalname
+      )
     );
   }
 });
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  express.urlencoded({
+    extended: true
+  })
+);
 
 app.use(
   session({
@@ -90,7 +117,8 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: false
+      secure:
+        process.env.NODE_ENV === "production"
     }
   })
 );
@@ -98,31 +126,28 @@ app.use(
 app.use(express.static(__dirname));
 
 function auth(req, res, next) {
-  if (req.session && req.session.admin === true) {
+  if (req.session.admin) {
     return next();
   }
 
   return res.status(401).json({
-    error: "Admin login required"
+    error: "Admin login required."
   });
 }
 
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
 app.post("/api/login", (req, res) => {
-  const password = String(req.body.password || "");
-
-  if (password !== ADMIN_PASSWORD) {
+  if (
+    req.body.password !==
+    ADMIN_PASSWORD
+  ) {
     return res.status(401).json({
-      error: "Wrong password"
+      error: "Wrong password."
     });
   }
 
   req.session.admin = true;
 
-  return res.json({
+  res.json({
     ok: true
   });
 });
@@ -137,7 +162,7 @@ app.post("/api/logout", (req, res) => {
 
 app.get("/api/me", (req, res) => {
   res.json({
-    admin: !!(req.session && req.session.admin)
+    admin: !!req.session.admin
   });
 });
 
@@ -145,121 +170,100 @@ app.get("/api/products", (_req, res) => {
   res.json(products);
 });
 
-const productUpload = upload.fields([
-  {
-    name: "preview",
-    maxCount: 1
-  },
-  {
-    name: "digital",
-    maxCount: 1
-  },
-  {
-    name: "digitalFile",
-    maxCount: 1
-  }
-]);
+app.post(
+  "/api/products",
+  auth,
 
-app.post("/api/products", auth, (req, res) => {
+  upload.fields([
+    {
+      name: "preview",
+      maxCount: 1
+    },
 
-  productUpload(req, res, (err) => {
+    {
+      name: "digitalFile",
+      maxCount: 1
+    },
 
-    if (err) {
-      console.error("Upload error:", err);
+    {
+      name: "digital",
+      maxCount: 1
+    }
+  ]),
 
+  (req, res) => {
+    const {
+      name,
+      price,
+      category,
+      description
+    } = req.body;
+
+    const preview =
+      req.files?.preview?.[0];
+
+    const digital =
+      req.files?.digitalFile?.[0] ||
+      req.files?.digital?.[0];
+
+    if (!name || !price || !category) {
       return res.status(400).json({
-        error: err.message || "File upload failed"
+        error:
+          "Name, price and category are required."
       });
     }
 
-    try {
-
-      const {
-        name,
-        price,
-        category,
-        description
-      } = req.body;
-
-      if (!name || !price || !category) {
-        return res.status(400).json({
-          error:
-            "Name, price and category are required."
-        });
-      }
-
-      const preview =
-        req.files?.preview?.[0];
-
-      const digital =
-        req.files?.digital?.[0] ||
-        req.files?.digitalFile?.[0];
-
-      if (!preview) {
-        return res.status(400).json({
-          error: "Preview image is required."
-        });
-      }
-
-      if (!digital) {
-        return res.status(400).json({
-          error:
-            "TIFF/TIF/ZIP digital file is required."
-        });
-      }
-
-      const product = {
-        id: crypto.randomUUID(),
-
-        name: String(name),
-
-        price: Number(price),
-
-        category: String(category),
-
-        description:
-          String(description || ""),
-
-        previewUrl:
-          "/uploads/" + preview.filename,
-
-        downloadFile:
-          digital.filename,
-
-        createdAt:
-          new Date().toISOString()
-      };
-
-      products.push(product);
-
-      save();
-
-      const safe = {
-        ...product
-      };
-
-      delete safe.downloadFile;
-
-      return res.status(201).json(safe);
-
-    } catch (e) {
-
-      console.error(
-        "Product creation error:",
-        e
-      );
-
-      return res.status(500).json({
-        error: "Product publish failed."
+    if (!preview) {
+      return res.status(400).json({
+        error:
+          "Preview image is required."
       });
     }
-  });
-});
 
-app.delete("/api/products/:id", auth, (req, res) => {
+    if (!digital) {
+      return res.status(400).json({
+        error:
+          "Digital TIFF/TIF/ZIP file is required."
+      });
+    }
 
-  try {
+    const product = {
+      id: crypto.randomUUID(),
 
+      name: String(name).trim(),
+
+      price: Number(price),
+
+      category:
+        String(category).trim(),
+
+      description:
+        String(description || "").trim(),
+
+      previewUrl:
+        "/uploads/" +
+        preview.filename,
+
+      downloadFile:
+        digital.filename,
+
+      createdAt:
+        new Date().toISOString()
+    };
+
+    products.push(product);
+
+    save();
+
+    res.status(201).json(product);
+  }
+);
+
+app.delete(
+  "/api/products/:id",
+  auth,
+
+  (req, res) => {
     const product =
       products.find(
         p => p.id === req.params.id
@@ -267,36 +271,37 @@ app.delete("/api/products/:id", auth, (req, res) => {
 
     if (!product) {
       return res.status(404).json({
-        error: "Product not found"
+        error: "Product not found."
       });
     }
 
     const files = [
       product.downloadFile,
+
       product.previewUrl
+        ?.replace("/uploads/", "")
     ];
 
     for (const file of files) {
-
       if (!file) continue;
-
-      const filename =
-        path.basename(file);
 
       const fullPath =
         path.join(
           uploadDir,
-          filename
+          file
         );
 
       try {
-
-        if (fs.existsSync(fullPath)) {
+        if (
+          fs.existsSync(fullPath)
+        ) {
           fs.unlinkSync(fullPath);
         }
-
       } catch (e) {
-        console.error(e);
+        console.error(
+          "Could not delete file:",
+          e
+        );
       }
     }
 
@@ -307,24 +312,15 @@ app.delete("/api/products/:id", auth, (req, res) => {
 
     save();
 
-    return res.json({
+    res.json({
       ok: true
     });
-
-  } catch (e) {
-
-    console.error(e);
-
-    return res.status(500).json({
-      error: "Delete failed."
-    });
   }
-});
+);
 
 app.get(
   "/api/products/:id/download",
   (req, res) => {
-
     const product =
       products.find(
         p => p.id === req.params.id
@@ -332,55 +328,72 @@ app.get(
 
     if (!product) {
       return res.status(404).json({
-        error: "Product not found"
-      });
-    }
-
-    if (!product.downloadFile) {
-      return res.status(404).json({
-        error: "Digital file not found"
+        error: "Product not found."
       });
     }
 
     const filePath =
       path.join(
         uploadDir,
-        path.basename(
-          product.downloadFile
-        )
+        product.downloadFile
       );
 
-    if (!fs.existsSync(filePath)) {
+    if (
+      !fs.existsSync(filePath)
+    ) {
       return res.status(404).json({
-        error: "Digital file is missing"
+        error:
+          "Digital file not found."
       });
     }
 
-    return res.download(filePath);
+    res.download(filePath);
   }
 );
 
 app.use(
   (err, _req, res, _next) => {
-
     console.error(
-      "Unhandled error:",
+      "REQUEST ERROR:",
       err
     );
 
-    if (res.headersSent) return;
+    if (res.headersSent) {
+      return;
+    }
 
-    res.status(500).json({
-      error:
-        err.message || "Server error"
+    const message =
+      err?.code ===
+      "LIMIT_FILE_SIZE"
+        ? "File too large. Maximum size is 100 MB."
+        : err?.message ||
+          "Server error.";
+
+    res.status(400).json({
+      error: message
     });
   }
 );
 
-app.listen(PORT, () => {
-
-  console.log(
-    `KP Design Studio running on port ${PORT}`
+app.get("*", (_req, res) => {
+  res.sendFile(
+    path.join(
+      __dirname,
+      "index.html"
+    )
   );
-
 });
+
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `KP Design Studio running on port ${PORT}`
+    );
+
+    console.log(
+      "Your service is live 🎉"
+    );
+  }
+);
